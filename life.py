@@ -1,5 +1,6 @@
 import pygame
 from collections import defaultdict
+from copy import deepcopy
 
 # Constants
 WIDTH, HEIGHT = 800, 600
@@ -7,12 +8,12 @@ CELL_SIZE = 10
 FPS = 30
 ZOOM_SPEED = 0.1
 
-# Colors
+
 BG_COLOR = (30, 30, 30)
 CELL_COLOR = (200, 200, 200)
 GRID_COLOR = (50, 50, 50)
 
-# Game of Life Functions
+
 def get_neighbors(cell):
     x, y = cell
     return [
@@ -34,25 +35,84 @@ def step(active_cells):
 
     return new_active_cells
 
-# Pygame Initialization
+
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Conway's Game of Life")
 clock = pygame.time.Clock()
 
-# Initial Setup
-active_cells = {(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)}
+glider = {(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)}
+
+glider_gun = {
+    (0, 5), (0, 6),
+    (1, 5), (1, 6),
+    (10, 5), (10, 6), (10, 7),
+    (11, 4), (11, 8),
+    (12, 3), (12, 9),
+    (13, 3), (13, 9),
+    (14, 6),
+    (15, 4), (15, 8),
+    (16, 5), (16, 6), (16, 7),
+    (17, 6),
+    (20, 3), (20, 4), (20, 5),
+    (21, 3), (21, 4), (21, 5),
+    (22, 2), (22, 6),
+    (24, 1), (24, 2), (24, 6), (24, 7),
+    (34, 3), (34, 4),
+    (35, 3), (35, 4),
+}
+
+eater = {
+    (0, 0), (0, 1), (1, 0),
+    (2, 1), (2, 3),
+    (3, 3), (3, 4),
+}
+
+glider_duplicator = {
+    (-2, 0), (-2, 1), (-1, -1), (-1, 2), (0, -2), (0, 3), # First duplicator structure
+    (2, -2), (2, 3), (3, -1), (3, 2), (4, 0), (4, 1) # Second duplicator structure
+}
+
+glider_reflector = {
+    (0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), # Base of the reflector
+    (1, -1), (1, 6), (2, 0), (2, 5), # Edges
+    (-2, 0), (-2, 1), (-3, 1), (-4, 2), (-4, 3), (-3, 4), (-2, 4), # Reflecting edge
+}
+
+
+glider_gun = {
+    (0, 5), (0, 6),
+    (1, 5), (1, 6),
+    (10, 5), (10, 6), (10, 7),
+    (11, 4), (11, 8),
+    (12, 3), (12, 9),
+    (13, 3), (13, 9),
+    (14, 6),
+    (15, 4), (15, 8),
+    (16, 5), (16, 6), (16, 7),
+    (17, 6),
+    (20, 3), (20, 4), (20, 5),
+    (21, 3), (21, 4), (21, 5),
+    (22, 2), (22, 6),
+    (24, 1), (24, 2), (24, 6), (24, 7),
+    (34, 3), (34, 4),
+    (35, 3), (35, 4),
+}
+
+
+active_cells = glider_gun
+intitial_cells = deepcopy(active_cells)
+undo_cells = active_cells.copy()
+
 running = False
 zoom = 1.0
 offset_x, offset_y = 0, 0
 
 def draw_grid(screen, zoom, offset_x, offset_y):
-    """Draw the background grid."""
     cell_size = int(CELL_SIZE * zoom)
     if cell_size < 1:
         return
 
-    # Find the grid lines to draw
     start_x = int(-offset_x // cell_size - WIDTH // (2 * cell_size))
     end_x = int((WIDTH - offset_x) // cell_size - WIDTH // (2 * cell_size))
     start_y = int(-offset_y // cell_size - HEIGHT // (2 * cell_size))
@@ -67,7 +127,6 @@ def draw_grid(screen, zoom, offset_x, offset_y):
         pygame.draw.line(screen, GRID_COLOR, (0, screen_y), (WIDTH, screen_y))
 
 def draw_cells(screen, active_cells, zoom, offset_x, offset_y):
-    """Draw the active cells."""
     cell_size = int(CELL_SIZE * zoom)
     if cell_size < 1:
         return
@@ -80,7 +139,6 @@ def draw_cells(screen, active_cells, zoom, offset_x, offset_y):
         pygame.draw.rect(screen, CELL_COLOR, (screen_x, screen_y, cell_size, cell_size))
 
 def get_cell_at_position(pos, zoom, offset_x, offset_y):
-    """Calculate the cell coordinates from a screen position."""
     cell_size = int(CELL_SIZE * zoom)
     screen_x, screen_y = pos
     grid_x = (screen_x - WIDTH // 2 - offset_x) // cell_size
@@ -98,33 +156,32 @@ def main():
 
             # Mouse controls for zoom
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 4:  # Scroll up
+                if event.button == 4:  
                     zoom *= 1 + ZOOM_SPEED
-                elif event.button == 5:  # Scroll down
+                elif event.button == 5:  
                     zoom /= 1 + ZOOM_SPEED
-                elif event.button == 1:  # Left click
+                elif event.button == 1: 
                     cell = get_cell_at_position(event.pos, zoom, offset_x, offset_y)
                     if cell in active_cells:
-                        active_cells.remove(cell)  # Deactivate cell
+                        active_cells.remove(cell) 
                     else:
-                        active_cells.add(cell)  # Activate cell
+                        active_cells.add(cell)  
 
             # Keyboard controls
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:  # Start/pause simulation
+                if event.key == pygame.K_SPACE:  
                     running = not running
-                if event.key == pygame.K_r:  # Reset simulation
-                    active_cells = {(1, 0), (2, 1), (0, 2), (1, 2), (2, 2)}
-                    running = False
-                if event.key == pygame.K_c:  # Clear grid
+                if event.key == pygame.K_c: 
                     active_cells = set()
                     running = False
+                if event.key == pygame.K_i:
+                    active_cells = intitial_cells
 
             # Dragging for panning
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # Left click
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: 
                 start_drag = event.pos
             if event.type == pygame.MOUSEMOTION:
-                if pygame.mouse.get_pressed()[0]:  # While holding left click
+                if pygame.mouse.get_pressed()[0]:  
                     dx, dy = event.rel
                     offset_x += dx
                     offset_y += dy
